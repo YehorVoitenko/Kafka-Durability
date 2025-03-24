@@ -1,8 +1,8 @@
 import time
 
 import requests
-from fastapi import HTTPException
 
+from common_exceptions import TokenIsNotValid
 from config import kafka_config
 
 
@@ -36,8 +36,6 @@ def _get_token_for_kafka_by_keycloak(conf):
             time.sleep(1)
             attempt -= 1
 
-    raise HTTPException(
-        status_code=503,
-        detail="Token verification service unavailable"
+    raise TokenIsNotValid(
+        "Token verification service unavailable"
     )
-
