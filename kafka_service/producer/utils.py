@@ -1,27 +1,37 @@
-import functools
+from typing import Callable, Any, Union
 
-from config import kafka_config
-from kafka_service.kafka_connection_utils import (
-    _get_token_for_kafka_by_keycloak,
-)
+from pydantic import BaseModel, model_validator
 
 
-def producer_config():
-    if not kafka_config.KAFKA_SECURED:
-        return kafka_config.KAFKA_PRODUCER_CONNECT_CONFIG
+class ProducerConfig(BaseModel):
+    bootstrap_servers: str
+    producer_name: str
+    secured: bool
+    oauth_cb: Union[Callable, None] = None
+    security_protocol: Union[str, None] = None
+    sasl_mechanisms: Union[str, None] = None
 
-    config_dict = dict()
-    config_dict.update(kafka_config.KAFKA_PRODUCER_CONNECT_CONFIG)
-    config_dict["oauth_cb"] = _get_token_for_kafka_by_keycloak
-    return config_dict
+    @model_validator(mode='after')
+    def check_secured_config(self):
+        if self.secured:
+            missing_fields = []
+            if self.oauth_cb is None:
+                missing_fields.append("oauth_cb")
+
+            if self.security_protocol is None:
+                missing_fields.append("security_protocol")
+
+            if self.sasl_mechanisms is None:
+                missing_fields.append("sasl_mechanisms")
+
+            if missing_fields:
+                raise ValueError(
+                    f"If 'secured' is True, the following fields must be set: {', '.join(missing_fields)}"
+                )
+        return self
 
 
-def delivery_report(err, msg):
-    if err is not None:
-        print("Delivery failed for User record {}: {}".format(msg.key(), err))
-        return
-    print(
-        "User record {} successfully produced to {} [{}] at offset {}".format(
-            msg.key(), msg.topic(), msg.partition(), msg.offset()
-        )
-    )
+class DataSend(BaseModel):
+    key: str
+    value: Any
+    headers: list[tuple] | None = None

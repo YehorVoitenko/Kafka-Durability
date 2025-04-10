@@ -1,32 +1,50 @@
 from confluent_kafka import Producer
 
-from config.kafka_config import KAFKA_TURN_ON
-from kafka_service.producer.utils import (
-    producer_config,
-    delivery_report,
-)
+from kafka_service.producer.utils import ProducerConfig, DataSend
 
 
-class SendMessageToKafka:
+class ProducerInitializer:
     def __init__(
             self,
-            producer_name: str,
-            data_to_send: str,
+            config: ProducerConfig,
     ):
-        self._producer_name = producer_name
-        self._data_to_send = data_to_send
+        self._producer_name = config.producer_name
+        self._producer = Producer(self._set_producer_config(config=config))
 
-    def _send_to_kafka(self, ):
+    @staticmethod
+    def _set_producer_config(config: ProducerConfig) -> dict:
+        producer_config = {
+            'bootstrap.servers': config.bootstrap_servers,
+        }
+        if config.secured:
+            producer_config['oauth_cb'] = config.oauth_cb
+            producer_config['security.protocol'] = config.security_protocol
+            producer_config['sasl.mechanisms'] = config.sasl_mechanisms
+
+        return producer_config
+
+    @staticmethod
+    def _delivery_report(error_message, message):
+        if error_message is not None:
+            print("Delivery failed for User record {}: {}".format(message.key(), error_message))
+            return
+        print(
+            "User record {} successfully produced to {} [{}] at offset {}".format(
+                message.key(),
+                message.topic(),
+                message.partition(),
+                message.offset()
+            )
+        )
+
+    def send_message(self,
+                     data_to_send: DataSend,
+                     ):
         self._producer.produce(
             topic=self._producer_name,
-            key=self._producer_name,
-            value=self._data_to_send,
-            on_delivery=delivery_report,
-            headers={"custom-header": "any info"}
+            key=data_to_send.key,
+            value=data_to_send.value,
+            on_delivery=self._delivery_report,
+            headers=data_to_send.headers
         )
         self._producer.flush()
-
-    def send_message(self):
-        if KAFKA_TURN_ON:
-            self._producer = Producer(producer_config())
-            self._send_to_kafka()

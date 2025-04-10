@@ -6,7 +6,7 @@ from common_exceptions import TokenIsNotValid
 from config import kafka_config
 
 
-def _get_token_for_kafka_by_keycloak(conf):
+def get_token_for_kafka_by_keycloak(conf):
     payload = {
         "grant_type": "client_credentials",
         "scope": str(kafka_config.KAFKA_KEYCLOAK_SCOPES),
